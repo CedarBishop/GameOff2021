@@ -3,6 +3,7 @@
 
 #include "SpiderPawn.h"
 #include "SpiderMovementComponent.h"
+#include "HungerComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/InputComponent.h"
@@ -23,6 +24,8 @@ ASpiderPawn::ASpiderPawn()
 	SetRootComponent(CapsuleComponent);
 
 	MovementComponent = CreateDefaultSubobject<USpiderMovementComponent>(TEXT("MovementComponent"));
+	
+	HungerComponent = CreateDefaultSubobject<UHungerComponent>(TEXT("HungerComponent"));
 
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
