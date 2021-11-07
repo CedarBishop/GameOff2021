@@ -19,4 +19,5 @@ float ASpiderPlayerState::GetHunger() const
 
 void ASpiderPlayerState::Death(const EDeathCause& deathCause)
 {
+    SpiderDiedDelegate.Broadcast(deathCause);
 }
