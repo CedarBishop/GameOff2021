@@ -60,6 +60,9 @@ void ASpiderPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 	PlayerInputComponent->BindAxis("TurnRate", this, &ASpiderPawn::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &ASpiderPawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &ASpiderPawn::LookUpAtRate);
+
+	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_Pressed, this, &ASpiderPawn::JumpHold);
+	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_Released, this, &ASpiderPawn::JumpRelease);
 }
 
 void ASpiderPawn::MoveForward(float Value)
@@ -100,5 +103,20 @@ void ASpiderPawn::TurnAtRate(float Rate)
 void ASpiderPawn::LookUpAtRate(float Rate)
 {
 	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+}
+
+void ASpiderPawn::JumpHold()
+{
+	MovementComponent->StartJumping();
+}
+
+void ASpiderPawn::JumpRelease()
+{
+	MovementComponent->FinishJumping();
+}
+
+bool ASpiderPawn::IsGrounded() const
+{
+	return MovementComponent->IsGrounded();
 }
 

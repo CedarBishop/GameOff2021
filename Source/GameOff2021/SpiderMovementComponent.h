@@ -49,7 +49,12 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual float GetMaxSpeed() const override;
 
-	void Jump();
+	UFUNCTION(BlueprintCallable)
+	void StartJumping(bool bJumpImmediately = false);
+	UFUNCTION(BlueprintCallable)
+	void FinishJumping();
+	UFUNCTION(BlueprintCallable)
+	void CancelJump();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float MaxSpeed;
@@ -64,10 +69,19 @@ public:
 	float AirSpeedModifier;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump")
-	float JumpPower;
+	float MinJumpPower;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump")
+	float MaxJumpPower;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump")
+	float JumpChargeTime;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump")
 	bool bCanJumpInAir;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Jump", AdvancedDisplay)
+	float MaxSpeedWhileHoldingJumpScaler;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Collision")
 	float AdditionalFloorTraceLength = 3.f;
@@ -79,11 +93,24 @@ protected:
 
 	bool CheckFloor(float DeltaTime, FHitResult& OutHitResult, float TraceLength);
 
+	// If we can jump at this time
+	bool CanJump() const;
+
 	UPROPERTY()
 	UCapsuleComponent* CapsuleComp;
 
-	bool bPendingJump;
+	bool bPendingJump = false;
+	bool bHoldingJump = false;
+	float JumpHoldTimer = 0.f;
 
 	// Ground to floor or wall
 	bool bIsGrounded = true;
+
+public:
+
+	UFUNCTION(BlueprintPure)
+	bool IsGrounded() const { return bIsGrounded;}
+
+	UFUNCTION(BlueprintPure)
+	bool IsHoldingJump() const { return bHoldingJump; }
 };

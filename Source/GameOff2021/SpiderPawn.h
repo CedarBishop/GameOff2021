@@ -48,6 +48,9 @@ protected:
 	 */
 	void LookUpAtRate(float Rate);
 
+	void JumpHold();
+	void JumpRelease();
+
 private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess="true"))
@@ -75,4 +78,9 @@ public:
 	/** Base look up/down rate, in deg/sec. Other scaling may affect final rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	float BaseLookUpRate;
+
+public:
+
+	UFUNCTION(BlueprintPure)
+	bool IsGrounded() const;
 };

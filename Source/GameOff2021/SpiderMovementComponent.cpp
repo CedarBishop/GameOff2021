@@ -14,7 +14,10 @@ USpiderMovementComponent::USpiderMovementComponent()
 	Deceleration = 10000.f;
 	AirSpeedModifier = 0.8f;
 	bCanJumpInAir = false;
-	JumpPower = 800.f;
+	MinJumpPower = 200.f;
+	MaxJumpPower = 800.f;
+	JumpChargeTime = 1.f;
+	MaxSpeedWhileHoldingJumpScaler = 0.2f;
 
 	CapsuleComp = nullptr;
 
@@ -37,6 +40,18 @@ void USpiderMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		return;
 	}
 
+	if (bHoldingJump)
+	{
+		if (CanJump())
+		{
+			JumpHoldTimer += DeltaTime;
+		}
+		else
+		{
+			CancelJump();
+		}
+	}
+
 	UpdateVelocity(DeltaTime);
 	UpdatePosition(DeltaTime);
 
@@ -48,15 +63,50 @@ void USpiderMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 
 float USpiderMovementComponent::GetMaxSpeed() const
 {
-	return MaxSpeed;
+	float Value = MaxSpeed;
+	if (bHoldingJump)
+	{
+		Value *= MaxSpeedWhileHoldingJumpScaler;
+	}
+
+	return Value;
 }
 
-void USpiderMovementComponent::Jump()
+void USpiderMovementComponent::StartJumping(bool bJumpImmediately)
 {
-	if (bIsGrounded || bCanJumpInAir)
+	if (bPendingJump)
 	{
+		return;
+	}
+
+	if (!CanJump())
+	{
+		return;
+	}
+
+	bHoldingJump = true;
+	JumpHoldTimer = 0.f;
+
+	if (bJumpImmediately)
+	{
+		FinishJumping();
+	}
+}
+
+void USpiderMovementComponent::FinishJumping()
+{
+	if (bHoldingJump)
+	{
+		bHoldingJump = false;
 		bPendingJump = true;
 	}
+}
+
+void USpiderMovementComponent::CancelJump()
+{
+	bHoldingJump = false;
+	bPendingJump = false;
+	JumpHoldTimer = 0.f;
 }
 
 void USpiderMovementComponent::UpdateVelocity(float DeltaTime)
@@ -74,7 +124,7 @@ void USpiderMovementComponent::UpdateVelocity(float DeltaTime)
 		}
 
 		Velocity += ControlAcceleration * FMath::Abs(Acceleration) * DeltaTime;
-		Velocity = Velocity.GetClampedToMaxSize(MaxSpeed);
+		Velocity = Velocity.GetClampedToMaxSize(GetMaxSpeed());
 
 		// TODO: Need to stick to surface (e.g, we might be going down a slope which we should walk down)
 	}
@@ -84,16 +134,26 @@ void USpiderMovementComponent::UpdateVelocity(float DeltaTime)
 		const float ControlInput = ControlAcceleration.SizeSquared() > 0.f ? ControlAcceleration.Size() : 0.f;
 
 		Velocity += ControlAcceleration * FMath::Abs(Acceleration) * DeltaTime * AirSpeedModifier;
+		float OldZ = Velocity.Z;
+		Velocity.Z = 0.f;
 		Velocity = Velocity.GetClampedToMaxSize(MaxSpeed);
+		Velocity.Z = OldZ;
 
 		Velocity.Z += GetGravityZ() * DeltaTime;
 	}
 
-	if (bPendingJump)
+	if (bPendingJump && CanJump())
 	{
+		float JumpPower = MaxJumpPower;
+		if (JumpChargeTime > 0.f)
+		{
+			JumpPower = FMath::Lerp(MinJumpPower, MaxJumpPower, FMath::Clamp(JumpHoldTimer / JumpChargeTime, 0.f, 1.f));
+		}
+
 		bIsGrounded = false;
 		Velocity.Z = JumpPower;
 		bPendingJump = false;
+		
 	}
 
 	ConsumeInputVector();
@@ -183,4 +243,9 @@ bool USpiderMovementComponent::CheckFloor(float DeltaTime, FHitResult& OutHitRes
 	}
 
 	return false;
+}
+
+bool USpiderMovementComponent::CanJump() const
+{
+	return bIsGrounded || bCanJumpInAir;
 }
