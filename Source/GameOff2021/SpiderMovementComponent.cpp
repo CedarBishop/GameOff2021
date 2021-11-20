@@ -72,6 +72,29 @@ float USpiderMovementComponent::GetMaxSpeed() const
 	return Value;
 }
 
+void USpiderMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
+{
+	if (GEngine && Hit.IsValidBlockingHit())
+	{
+		//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, FString::Printf(TEXT("Spider Hit Something: %s"), *Hit.GetActor()->GetName()));
+		//DrawDebugSphere(GetWorld(), Hit.ImpactPoint, 20.f, 8, FColor::Magenta, false, 1.f, 10, 5.f);
+	}
+
+	// TODO: Need to check if close to feet, if so, it's not a wall
+	if (bDoingMove && Hit.IsValidBlockingHit())
+	{
+		if (!IsPointUnderFeet(Hit.ImpactPoint))
+		{
+			FVector MoveDir = MoveDelta.GetSafeNormal();
+			FVector SurfaceNormal = Hit.Normal;
+			if (FVector::DotProduct(MoveDir, SurfaceNormal) < -0.7)
+			{
+				PendingWall = Hit;
+			}
+		}
+	}
+}
+
 void USpiderMovementComponent::StartJumping(bool bJumpImmediately)
 {
 	if (bPendingJump)
@@ -151,9 +174,8 @@ void USpiderMovementComponent::UpdateVelocity(float DeltaTime)
 		}
 
 		bIsGrounded = false;
-		Velocity.Z = JumpPower;
+		Velocity += GetOwner()->GetActorUpVector() * JumpPower;
 		bPendingJump = false;
-		
 	}
 
 	ConsumeInputVector();
@@ -168,8 +190,17 @@ void USpiderMovementComponent::UpdatePosition(float DeltaTime)
 
 	if (!Delta.IsNearlyZero(1e-6f))
 	{
+		bDoingMove = true;
+
 		const FVector OldLocation = UpdatedComponent->GetComponentLocation();
-		const FQuat Rotation = UpdatedComponent->GetComponentQuat();
+		const FQuat Rotation = bIsGrounded ? UpdatedComponent->GetComponentQuat() : FQuat::Identity;
+
+		bool bWasHittingWall = PendingWall.IsValidBlockingHit();
+
+		if (!bIsGrounded)
+		{
+			Delta = FTransform(Rotation).TransformVector(Delta);
+		}
 
 		FHitResult Hit(1.f);
 		SafeMoveUpdatedComponent(Delta, Rotation, true, Hit);
@@ -177,8 +208,22 @@ void USpiderMovementComponent::UpdatePosition(float DeltaTime)
 		if (Hit.IsValidBlockingHit())
 		{
 			HandleImpact(Hit, DeltaTime, Delta);
-			SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, true);
+
+			bool bNowHittingWall = PendingWall.IsValidBlockingHit();
+			if (!bWasHittingWall && bNowHittingWall)
+			{
+				FVector MoveToWallDelta = (PendingWall.ImpactPoint + (PendingWall.Normal * CapsuleComp->GetScaledCapsuleHalfHeight())) - CapsuleComp->GetComponentLocation();
+				MoveUpdatedComponent(MoveToWallDelta, FRotationMatrix::MakeFromZ(PendingWall.Normal).ToQuat(), false);
+			}
+			else if (!bNowHittingWall)
+			{
+				SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, true);
+			}
+
+			PendingWall.Reset();
 		}
+
+		bDoingMove = false;
 	}
 
 	bool bWasPreviouslyGrounded = bIsGrounded;
@@ -192,10 +237,12 @@ void USpiderMovementComponent::UpdatePosition(float DeltaTime)
 		}
 
 		bIsGrounded = true;
+		FloorCache.Set(FloorHit);
 	}
 	else
 	{
 		bIsGrounded = false;
+		FloorCache.Clear();
 	}
 }
 
@@ -248,4 +295,26 @@ bool USpiderMovementComponent::CheckFloor(float DeltaTime, FHitResult& OutHitRes
 bool USpiderMovementComponent::CanJump() const
 {
 	return bIsGrounded || bCanJumpInAir;
+}
+
+FVector USpiderMovementComponent::GetFloorNormal() const
+{
+	return IsGrounded() && FloorCache.IsValidFloor() ? FloorCache.GetHitResult().Normal : FVector::UpVector;
+}
+
+bool USpiderMovementComponent::IsPointUnderFeet(FVector Point) const
+{
+	// Not the best, this isn't the best check (as it assume Point is a collision against the capsule)
+
+	if (!CapsuleComp)
+	{
+		return false;
+	}
+
+	float CapsuleRadius, CapsuleHalfHeight;
+	CapsuleComp->GetScaledCapsuleSize(CapsuleRadius, CapsuleHalfHeight);
+
+	FVector RelativeLowerCapsule = FVector(0, 0, -CapsuleHalfHeight);
+	FVector ImpactPointRelative = CapsuleComp->GetComponentTransform().InverseTransformPosition(Point);
+	return ImpactPointRelative.Z < RelativeLowerCapsule.Z && ImpactPointRelative.SizeSquared2D() < FMath::Square(0.2f);
 }

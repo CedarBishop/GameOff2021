@@ -65,32 +65,56 @@ void ASpiderPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponen
 	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_Released, this, &ASpiderPawn::JumpRelease);
 }
 
+#include "DrawDebugHelpers.h"
+
 void ASpiderPawn::MoveForward(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr))// && (Value != 0.0f))
 	{
 		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
 		// get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		AddMovementInput(Direction, Value);
+		FVector Direction = FMatrix(FollowCamera->GetForwardVector(), FollowCamera->GetRightVector(), MovementComponent->GetFloorNormal(), FVector4(0, 0, 0, 1)).GetUnitAxis(EAxis::X);
+		
+
+		//Direction = YawRotation.Vector();
+		Direction = Direction.VectorPlaneProject(Direction, MovementComponent->GetFloorNormal());
+		//DrawDebugCoordinateSystem(GetWorld(), GetActorLocation(), Direction.Rotation(), 150.f, false, -1.f, 20, 5.f);
+		if (GEngine)
+		{
+			//GEngine->AddOnScreenDebugMessage(INDEX_NONE, -1.f, FColor::Green, Direction.ToString());
+		}
+		if (Value != 0.f)
+			AddMovementInput(Direction, Value);
 	}
 }
 
 void ASpiderPawn::MoveRight(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr))// && (Value != 0.0f))
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
 		// get right vector 
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		FVector Direction = FMatrix(FollowCamera->GetForwardVector(), FollowCamera->GetRightVector(), MovementComponent->GetFloorNormal(), FVector4(0, 0, 0, 1)).GetUnitAxis(EAxis::X);
+		// Hack
+		float Angle = FVector::DotProduct(FVector::UpVector, MovementComponent->GetFloorNormal()) < -0.95f ? -90.f : 90.f;
+		Direction = Direction.RotateAngleAxis(Angle, MovementComponent->GetFloorNormal());
+		Direction = Direction.VectorPlaneProject(Direction, MovementComponent->GetFloorNormal());
 		// add movement in that direction
-		AddMovementInput(Direction, Value);
+		//DrawDebugCoordinateSystem(GetWorld(), GetActorLocation(), Direction.Rotation(), 300.f, false, -1.f, 20, 10.f);
+		if (GEngine)
+
+		{
+			//GEngine->AddOnScreenDebugMessage(INDEX_NONE, -1.f, FColor::Green, Direction.ToString());
+		}
+		
+		if (Value != 0.f)
+			AddMovementInput(Direction, Value);
 	}
 }
 

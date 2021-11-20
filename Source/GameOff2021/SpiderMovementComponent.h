@@ -48,6 +48,7 @@ public:
 	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual float GetMaxSpeed() const override;
+	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice = 0.f, const FVector& MoveDelta = FVector::ZeroVector) override;
 
 	UFUNCTION(BlueprintCallable)
 	void StartJumping(bool bJumpImmediately = false);
@@ -106,6 +107,13 @@ protected:
 	// Ground to floor or wall
 	bool bIsGrounded = true;
 
+	bool bDoingMove = false;
+
+	// When we move, the wall we ran into and should stick to
+	FHitResult PendingWall;
+
+	FSpiderMovementFloor FloorCache;
+
 public:
 
 	UFUNCTION(BlueprintPure)
@@ -113,4 +121,11 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	bool IsHoldingJump() const { return bHoldingJump; }
+
+	// Up Vector is not grounded
+	FVector GetFloorNormal() const;
+
+private:
+
+	bool IsPointUnderFeet(FVector Point) const;
 };
